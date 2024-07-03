@@ -1,0 +1,11 @@
+
+opencv-python-headless
+torch
+transformers
+Pillow
+numpy
+tk
+colorama
+simpleaudio
+requests
+matplotlib
