@@ -30,6 +30,8 @@ class YO_FLO:
         self.detections = []
         self.beep_active = False
         self.screenshot_active = False
+        self.screenshot_on_yes_active = False
+        self.screenshot_on_no_active = False
         self.target_detected = False
         self.last_beep_time = 0
         self.stop_webcam_flag = threading.Event()
@@ -48,7 +50,6 @@ class YO_FLO:
         self.inference_tree_active = False
         self.root = tk.Tk()
         self.root.withdraw()
-
 
     def init_model(self, model_path):
         try:
@@ -430,6 +431,30 @@ class YO_FLO:
                 f"{Fore.RED}{Style.BRIGHT}Error toggling screenshot: {e}{Style.RESET_ALL}"
             )
 
+    def toggle_screenshot_on_yes(self):
+        try:
+            self.screenshot_on_yes_active = not self.screenshot_on_yes_active
+            status = "active" if self.screenshot_on_yes_active else "inactive"
+            print(
+                f"{Fore.GREEN}{Style.BRIGHT}Screenshot on Yes Inference is now {status}{Style.RESET_ALL}"
+            )
+        except Exception as e:
+            print(
+                f"{Fore.RED}{Style.BRIGHT}Error toggling Screenshot on Yes Inference: {e}{Style.RESET_ALL}"
+            )
+
+    def toggle_screenshot_on_no(self):
+        try:
+            self.screenshot_on_no_active = not self.screenshot_on_no_active
+            status = "active" if self.screenshot_on_no_active else "inactive"
+            print(
+                f"{Fore.GREEN}{Style.BRIGHT}Screenshot on No Inference is now {status}{Style.RESET_ALL}"
+            )
+        except Exception as e:
+            print(
+                f"{Fore.RED}{Style.BRIGHT}Error toggling Screenshot on No Inference: {e}{Style.RESET_ALL}"
+            )
+
     def toggle_debug(self):
         try:
             self.debug = not self.debug
@@ -502,10 +527,18 @@ class YO_FLO:
                 self.caption_label.config(
                     text=caption, fg="green", bg="black", font=("Helvetica", 14, "bold")
                 )
+                if self.screenshot_on_yes_active:
+                    self.save_screenshot(
+                        cv2.cvtColor(np.array(self.latest_image), cv2.COLOR_RGB2BGR)
+                    )
             elif caption.lower() == "no":
                 self.caption_label.config(
                     text=caption, fg="red", bg="black", font=("Helvetica", 14, "bold")
                 )
+                if self.screenshot_on_no_active:
+                    self.save_screenshot(
+                        cv2.cvtColor(np.array(self.latest_image), cv2.COLOR_RGB2BGR)
+                    )
             else:
                 self.caption_label.config(
                     text=caption, fg="white", bg="black", font=("Helvetica", 14, "bold")
@@ -590,9 +623,9 @@ class YO_FLO:
                 try:
                     image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                     image_pil = Image.fromarray(image)
+                    self.latest_image = image_pil
                     if self.debug:
                         print(f"Captured frame from webcam")
-
                     if self.expression_comprehension_active and self.phrase:
                         if self.debug:
                             print(
@@ -712,7 +745,6 @@ class YO_FLO:
                 f"{Fore.RED}{Style.BRIGHT}Webcam detection is not running.{Style.RESET_ALL}"
             )
             return
-
         self.object_detection_active = False
         self.expression_comprehension_active = False
         self.visual_grounding_active = False
@@ -823,6 +855,16 @@ class YO_FLO:
                 text="Toggle Screenshot on Detection",
                 command=self.toggle_screenshot,
             ).pack(fill="x")
+            tk.Button(
+                toggle_triggers_frame,
+                text="Toggle Screenshot on Yes Inference",
+                command=self.toggle_screenshot_on_yes,
+            ).pack(fill="x")
+            tk.Button(
+                toggle_triggers_frame,
+                text="Toggle Screenshot on No Inference",
+                command=self.toggle_screenshot_on_no,
+            ).pack(fill="x")
 
             webcam_frame = tk.LabelFrame(self.root, text="Webcam Control")
             webcam_frame.pack(fill="x", padx=10, pady=5)
@@ -837,9 +879,9 @@ class YO_FLO:
                 command=self.stop_webcam_detection,
             ).pack(fill="x")
 
-            tk.Button(self.root, text="Toggle Debug Mode", command=self.toggle_debug).pack(
-                fill="x", padx=10, pady=10
-            )
+            tk.Button(
+                self.root, text="Toggle Debug Mode", command=self.toggle_debug
+            ).pack(fill="x", padx=10, pady=10)
 
             inference_rate_frame = tk.LabelFrame(self.root, text="Inference Rate")
             inference_rate_frame.pack(fill="x", padx=10, pady=5)
@@ -887,6 +929,7 @@ class YO_FLO:
         except Exception as e:
             print(f"{Fore.RED}{Style.BRIGHT}Error creating menu: {e}{Style.RESET_ALL}")
         self.root.mainloop()
+
 
 if __name__ == "__main__":
     try:
