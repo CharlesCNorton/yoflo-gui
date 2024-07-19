@@ -46,6 +46,9 @@ class YO_FLO:
         self.inference_phrases = []
         self.inference_result_label = None
         self.inference_tree_active = False
+        self.root = tk.Tk()
+        self.root.withdraw()
+
 
     def init_model(self, model_path):
         try:
@@ -701,24 +704,33 @@ class YO_FLO:
         finally:
             cap.release()
             cv2.destroyAllWindows()
+            self.stop_webcam_flag.clear()
 
     def stop_webcam_detection(self):
         if not self.webcam_thread or not self.webcam_thread.is_alive():
             print(
                 f"{Fore.RED}{Style.BRIGHT}Webcam detection is not running.{Style.RESET_ALL}"
             )
+            return
+
         self.object_detection_active = False
         self.expression_comprehension_active = False
         self.visual_grounding_active = False
         self.inference_tree_active = False
 
-        time.sleep(3)
+        self.update_display()
 
         self.stop_webcam_flag.set()
-        self.webcam_thread.join()
-        print(
-            f"{Fore.GREEN}{Style.BRIGHT}Webcam detection stopped successfully.{Style.RESET_ALL}"
-        )
+
+        self.root.after(100, self._wait_for_thread_to_stop)
+
+    def _wait_for_thread_to_stop(self):
+        if self.webcam_thread.is_alive():
+            self.root.after(100, self._wait_for_thread_to_stop)
+        else:
+            print(
+                f"{Fore.GREEN}{Style.BRIGHT}Webcam detection stopped successfully.{Style.RESET_ALL}"
+            )
 
     def update_display(self):
         if not self.object_detection_active:
@@ -727,22 +739,17 @@ class YO_FLO:
             cv2.waitKey(1)
 
     def main_menu(self):
-        root = tk.Tk()
-        root.title("YO-FLO Menu")
+        self.root.deiconify()
+        self.root.title("YO-FLO Menu")
 
         def on_closing():
             self.stop_webcam_detection()
-            root.destroy()
+            self.root.destroy()
 
-        def stop_webcam_with_delay():
-            self.stop_webcam_detection()
-            time.sleep(3)
-            root.destroy()
-
-        root.protocol("WM_DELETE_WINDOW", stop_webcam_with_delay)
+        self.root.protocol("WM_DELETE_WINDOW", on_closing)
 
         try:
-            model_frame = tk.LabelFrame(root, text="Model Management")
+            model_frame = tk.LabelFrame(self.root, text="Model Management")
             model_frame.pack(fill="x", padx=10, pady=5)
             tk.Button(
                 model_frame, text="Select Model Path", command=self.select_model_path
@@ -753,7 +760,7 @@ class YO_FLO:
                 command=self.download_model,
             ).pack(fill="x")
 
-            detection_frame = tk.LabelFrame(root, text="Detection Settings")
+            detection_frame = tk.LabelFrame(self.root, text="Detection Settings")
             detection_frame.pack(fill="x", padx=10, pady=5)
             tk.Button(
                 detection_frame,
@@ -776,7 +783,7 @@ class YO_FLO:
                 command=self.set_inference_tree,
             ).pack(fill="x")
 
-            toggle_features_frame = tk.LabelFrame(root, text="Toggle Features")
+            toggle_features_frame = tk.LabelFrame(self.root, text="Toggle Features")
             toggle_features_frame.pack(fill="x", padx=10, pady=5)
             tk.Button(
                 toggle_features_frame,
@@ -804,7 +811,7 @@ class YO_FLO:
                 command=self.toggle_headless,
             ).pack(fill="x")
 
-            toggle_triggers_frame = tk.LabelFrame(root, text="Toggle Triggers")
+            toggle_triggers_frame = tk.LabelFrame(self.root, text="Toggle Triggers")
             toggle_triggers_frame.pack(fill="x", padx=10, pady=5)
             tk.Button(
                 toggle_triggers_frame,
@@ -817,7 +824,7 @@ class YO_FLO:
                 command=self.toggle_screenshot,
             ).pack(fill="x")
 
-            webcam_frame = tk.LabelFrame(root, text="Webcam Control")
+            webcam_frame = tk.LabelFrame(self.root, text="Webcam Control")
             webcam_frame.pack(fill="x", padx=10, pady=5)
             tk.Button(
                 webcam_frame,
@@ -830,11 +837,11 @@ class YO_FLO:
                 command=self.stop_webcam_detection,
             ).pack(fill="x")
 
-            tk.Button(root, text="Toggle Debug Mode", command=self.toggle_debug).pack(
+            tk.Button(self.root, text="Toggle Debug Mode", command=self.toggle_debug).pack(
                 fill="x", padx=10, pady=10
             )
 
-            inference_rate_frame = tk.LabelFrame(root, text="Inference Rate")
+            inference_rate_frame = tk.LabelFrame(self.root, text="Inference Rate")
             inference_rate_frame.pack(fill="x", padx=10, pady=5)
             self.inference_rate_label = tk.Label(
                 inference_rate_frame,
@@ -845,7 +852,7 @@ class YO_FLO:
             )
             self.inference_rate_label.pack(fill="x")
 
-            binary_inference_frame = tk.LabelFrame(root, text="Binary Inference")
+            binary_inference_frame = tk.LabelFrame(self.root, text="Binary Inference")
             binary_inference_frame.pack(fill="x", padx=10, pady=5)
             self.caption_label = tk.Label(
                 binary_inference_frame,
@@ -856,7 +863,7 @@ class YO_FLO:
             )
             self.caption_label.pack(fill="x")
 
-            inference_tree_frame = tk.LabelFrame(root, text="Inference Tree")
+            inference_tree_frame = tk.LabelFrame(self.root, text="Inference Tree")
             inference_tree_frame.pack(fill="x", padx=10, pady=5)
             self.inference_result_label = tk.Label(
                 inference_tree_frame,
@@ -879,8 +886,7 @@ class YO_FLO:
                 self.inference_phrases_result_labels.append(label)
         except Exception as e:
             print(f"{Fore.RED}{Style.BRIGHT}Error creating menu: {e}{Style.RESET_ALL}")
-        root.mainloop()
-
+        self.root.mainloop()
 
 if __name__ == "__main__":
     try:
