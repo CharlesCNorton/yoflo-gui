@@ -48,7 +48,7 @@ pip install torch transformers pillow opencv-python colorama simpleaudio hugging
 To start YO-FLO, run the following command:
 
 ```bash
-python yoflo.py
+python yo-flo.py
 ```
 
 ### Menu Options
