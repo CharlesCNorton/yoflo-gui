@@ -4,7 +4,7 @@ from transformers import AutoProcessor, AutoModelForCausalLM
 from PIL import Image
 import numpy as np
 import tkinter as tk
-from tkinter import filedialog, simpledialog
+from tkinter import filedialog, simpledialog, Toplevel
 from colorama import Fore, Style, init
 import threading
 import os
@@ -784,86 +784,31 @@ class YO_FLO:
             model_frame = tk.LabelFrame(self.root, text="Model Management")
             model_frame.pack(fill="x", padx=10, pady=5)
             tk.Button(
-                model_frame, text="Select Model Path", command=self.select_model_path
-            ).pack(fill="x")
-            tk.Button(
-                model_frame,
-                text="Download Model from HuggingFace",
-                command=self.download_model,
+                model_frame, text="Model Options", command=self.open_model_options
             ).pack(fill="x")
 
             detection_frame = tk.LabelFrame(self.root, text="Detection Settings")
             detection_frame.pack(fill="x", padx=10, pady=5)
             tk.Button(
                 detection_frame,
-                text="Set Classes for Object Detection",
-                command=self.set_class_name,
-            ).pack(fill="x")
-            tk.Button(
-                detection_frame,
-                text="Set Phrase for Yes/No Inference",
-                command=self.set_phrase,
-            ).pack(fill="x")
-            tk.Button(
-                detection_frame,
-                text="Set Grounding Phrase",
-                command=self.set_visual_grounding_phrase,
-            ).pack(fill="x")
-            tk.Button(
-                detection_frame,
-                text="Set Inference Tree",
-                command=self.set_inference_tree,
+                text="Detection Options",
+                command=self.open_detection_options,
             ).pack(fill="x")
 
             toggle_features_frame = tk.LabelFrame(self.root, text="Toggle Features")
             toggle_features_frame.pack(fill="x", padx=10, pady=5)
             tk.Button(
                 toggle_features_frame,
-                text="Toggle Object Detection",
-                command=self.toggle_object_detection,
-            ).pack(fill="x")
-            tk.Button(
-                toggle_features_frame,
-                text="Toggle Yes/No Inference",
-                command=self.toggle_expression_comprehension,
-            ).pack(fill="x")
-            tk.Button(
-                toggle_features_frame,
-                text="Toggle Visual Grounding",
-                command=self.toggle_visual_grounding,
-            ).pack(fill="x")
-            tk.Button(
-                toggle_features_frame,
-                text="Toggle Inference Tree",
-                command=self.toggle_inference_tree,
-            ).pack(fill="x")
-            tk.Button(
-                toggle_features_frame,
-                text="Toggle Headless Mode",
-                command=self.toggle_headless,
+                text="Feature Toggles",
+                command=self.open_feature_toggles,
             ).pack(fill="x")
 
             toggle_triggers_frame = tk.LabelFrame(self.root, text="Toggle Triggers")
             toggle_triggers_frame.pack(fill="x", padx=10, pady=5)
             tk.Button(
                 toggle_triggers_frame,
-                text="Toggle Beep on Detection",
-                command=self.toggle_beep,
-            ).pack(fill="x")
-            tk.Button(
-                toggle_triggers_frame,
-                text="Toggle Screenshot on Detection",
-                command=self.toggle_screenshot,
-            ).pack(fill="x")
-            tk.Button(
-                toggle_triggers_frame,
-                text="Toggle Screenshot on Yes Inference",
-                command=self.toggle_screenshot_on_yes,
-            ).pack(fill="x")
-            tk.Button(
-                toggle_triggers_frame,
-                text="Toggle Screenshot on No Inference",
-                command=self.toggle_screenshot_on_no,
+                text="Trigger Toggles",
+                command=self.open_trigger_toggles,
             ).pack(fill="x")
 
             webcam_frame = tk.LabelFrame(self.root, text="Webcam Control")
@@ -929,6 +874,97 @@ class YO_FLO:
         except Exception as e:
             print(f"{Fore.RED}{Style.BRIGHT}Error creating menu: {e}{Style.RESET_ALL}")
         self.root.mainloop()
+
+    def open_model_options(self):
+        model_window = Toplevel(self.root)
+        model_window.title("Model Options")
+        model_frame = tk.LabelFrame(model_window, text="Model Management")
+        model_frame.pack(fill="x", padx=10, pady=5)
+        tk.Button(
+            model_frame, text="Select Model Path", command=self.select_model_path
+        ).pack(fill="x")
+        tk.Button(
+            model_frame,
+            text="Download Model from HuggingFace",
+            command=self.download_model,
+        ).pack(fill="x")
+
+    def open_detection_options(self):
+        detection_window = Toplevel(self.root)
+        detection_window.title("Detection Options")
+        detection_frame = tk.LabelFrame(detection_window, text="Detection Settings")
+        detection_frame.pack(fill="x", padx=10, pady=5)
+        tk.Button(
+            detection_frame,
+            text="Set Classes for Object Detection",
+            command=self.set_class_name,
+        ).pack(fill="x")
+        tk.Button(
+            detection_frame,
+            text="Set Phrase for Yes/No Inference",
+            command=self.set_phrase,
+        ).pack(fill="x")
+        tk.Button(
+            detection_frame,
+            text="Set Grounding Phrase",
+            command=self.set_visual_grounding_phrase,
+        ).pack(fill="x")
+        tk.Button(
+            detection_frame, text="Set Inference Tree", command=self.set_inference_tree
+        ).pack(fill="x")
+
+    def open_feature_toggles(self):
+        features_window = Toplevel(self.root)
+        features_window.title("Feature Toggles")
+        toggle_features_frame = tk.LabelFrame(features_window, text="Toggle Features")
+        toggle_features_frame.pack(fill="x", padx=10, pady=5)
+        tk.Checkbutton(
+            toggle_features_frame,
+            text="Object Detection",
+            command=self.toggle_object_detection,
+        ).pack(fill="x")
+        tk.Checkbutton(
+            toggle_features_frame,
+            text="Yes/No Inference",
+            command=self.toggle_expression_comprehension,
+        ).pack(fill="x")
+        tk.Checkbutton(
+            toggle_features_frame,
+            text="Visual Grounding",
+            command=self.toggle_visual_grounding,
+        ).pack(fill="x")
+        tk.Checkbutton(
+            toggle_features_frame,
+            text="Inference Tree",
+            command=self.toggle_inference_tree,
+        ).pack(fill="x")
+        tk.Checkbutton(
+            toggle_features_frame, text="Headless Mode", command=self.toggle_headless
+        ).pack(fill="x")
+
+    def open_trigger_toggles(self):
+        triggers_window = Toplevel(self.root)
+        triggers_window.title("Trigger Toggles")
+        toggle_triggers_frame = tk.LabelFrame(triggers_window, text="Toggle Triggers")
+        toggle_triggers_frame.pack(fill="x", padx=10, pady=5)
+        tk.Checkbutton(
+            toggle_triggers_frame, text="Beep on Detection", command=self.toggle_beep
+        ).pack(fill="x")
+        tk.Checkbutton(
+            toggle_triggers_frame,
+            text="Screenshot on Detection",
+            command=self.toggle_screenshot,
+        ).pack(fill="x")
+        tk.Checkbutton(
+            toggle_triggers_frame,
+            text="Screenshot on Yes Inference",
+            command=self.toggle_screenshot_on_yes,
+        ).pack(fill="x")
+        tk.Checkbutton(
+            toggle_triggers_frame,
+            text="Screenshot on No Inference",
+            command=self.toggle_screenshot_on_no,
+        ).pack(fill="x")
 
 
 if __name__ == "__main__":
