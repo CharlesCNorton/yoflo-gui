@@ -14,7 +14,6 @@ from huggingface_hub import hf_hub_download
 
 init(autoreset=True)
 
-
 class YO_FLO:
     def __init__(self):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -26,7 +25,7 @@ class YO_FLO:
         self.inference_start_time = None
         self.inference_count = 0
         self.inference_rate_label = None
-        self.class_name = None
+        self.class_names = []  # Allow multiple class names
         self.detections = []
         self.beep_active = False
         self.screenshot_active = False
@@ -43,7 +42,8 @@ class YO_FLO:
         self.expression_comprehension_active = False
         self.visual_grounding_active = False
         self.visual_grounding_phrase = None
-        self.webcam_thread = None
+        self.webcam_threads = []
+        self.webcam_indices = [0]
         self.inference_title = None
         self.inference_phrases = []
         self.inference_result_label = None
@@ -158,7 +158,12 @@ class YO_FLO:
             )
             if self.debug:
                 print(f"Parsed answer: {parsed_answer}")
-            return parsed_answer
+            detections = []
+            if parsed_answer and "<OD>" in parsed_answer:
+                for bbox, label in zip(parsed_answer["<OD>"]["bboxes"], parsed_answer["<OD>"]["labels"]):
+                    if not self.class_names or label.lower() in self.class_names:
+                        detections.append((bbox, label))
+            return detections
         except AttributeError as e:
             print(
                 f"{Fore.RED}{Style.BRIGHT}Model or processor not initialized properly: {e}{Style.RESET_ALL}"
@@ -319,25 +324,27 @@ class YO_FLO:
                 f"{Fore.RED}{Style.BRIGHT}Error downloading model: {e}{Style.RESET_ALL}"
             )
 
-    def set_class_name(self):
+    def set_class_names(self):
         try:
-            class_name = simpledialog.askstring(
-                "Set Class Name",
-                "Enter the class name you want to detect (leave blank to show all detections, e.g., 'cat', 'dog'):",
+            class_names = simpledialog.askstring(
+                "Set Class Names",
+                "Enter the class names you want to detect, separated by commas (e.g., 'cat, dog'):",
             )
-            self.class_name = class_name if class_name else None
-            if self.class_name:
+            if class_names:
+                self.class_names = [name.strip().lower() for name in class_names.split(',')]
                 print(
-                    f"{Fore.GREEN}{Style.BRIGHT}Set to detect: {self.class_name}{Style.RESET_ALL}"
+                    f"{Fore.GREEN}{Style.BRIGHT}Set to detect: {', '.join(self.class_names)}{Style.RESET_ALL}"
                 )
             else:
+                self.class_names = []
                 print(
                     f"{Fore.GREEN}{Style.BRIGHT}Showing all detections{Style.RESET_ALL}"
                 )
         except Exception as e:
             print(
-                f"{Fore.RED}{Style.BRIGHT}Error setting class name: {e}{Style.RESET_ALL}"
+                f"{Fore.RED}{Style.BRIGHT}Error setting class names: {e}{Style.RESET_ALL}"
             )
+
 
     def set_phrase(self):
         try:
@@ -472,7 +479,7 @@ class YO_FLO:
             self.object_detection_active = not self.object_detection_active
             if not self.object_detection_active:
                 self.detections.clear()
-                self.class_name = "null"
+                self.class_names = []
                 self.update_display()
             status = "enabled" if self.object_detection_active else "disabled"
             print(
@@ -596,36 +603,34 @@ class YO_FLO:
             )
 
     def start_webcam_detection(self):
-        if self.webcam_thread and self.webcam_thread.is_alive():
-            print(
-                f"{Fore.RED}{Style.BRIGHT}Webcam detection is already running.{Style.RESET_ALL}"
-            )
+        if self.webcam_threads:
+            print(f"{Fore.RED}{Style.BRIGHT}Webcam detection is already running.{Style.RESET_ALL}")
             return
         self.stop_webcam_flag.clear()
-        self.webcam_thread = threading.Thread(target=self._webcam_detection_thread)
-        self.webcam_thread.start()
+        for index in self.webcam_indices:
+            thread = threading.Thread(
+                target=self._webcam_detection_thread, args=(index,)
+            )
+            thread.start()
+            self.webcam_threads.append(thread)
 
-    def _webcam_detection_thread(self):
+    def _webcam_detection_thread(self, index):
         try:
-            cap = cv2.VideoCapture(0)
+            cap = cv2.VideoCapture(index)
             if not cap.isOpened():
-                print(
-                    f"{Fore.RED}{Style.BRIGHT}Error: Could not open webcam.{Style.RESET_ALL}"
-                )
+                print(f"{Fore.RED}{Style.BRIGHT}Error: Could not open webcam {index}.{Style.RESET_ALL}")
                 return
             while not self.stop_webcam_flag.is_set():
                 ret, frame = cap.read()
                 if not ret:
-                    print(
-                        f"{Fore.RED}{Style.BRIGHT}Error: Failed to capture image from webcam.{Style.RESET_ALL}"
-                    )
+                    print(f"{Fore.RED}{Style.BRIGHT}Error: Failed to capture image from webcam {index}.{Style.RESET_ALL}")
                     break
                 try:
                     image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                     image_pil = Image.fromarray(image)
                     self.latest_image = image_pil
                     if self.debug:
-                        print(f"Captured frame from webcam")
+                        print(f"Captured frame from webcam {index}")
                     if self.expression_comprehension_active and self.phrase:
                         if self.debug:
                             print(
@@ -644,27 +649,11 @@ class YO_FLO:
                     if self.object_detection_active:
                         if self.debug:
                             print(f"Running object detection")
-                        results = self.run_object_detection(image_pil)
-                        if results and "<OD>" in results:
-                            self.target_detected = False
-                            self.detections = []
-                            for bbox, label in zip(
-                                results["<OD>"]["bboxes"], results["<OD>"]["labels"]
-                            ):
-                                if (
-                                    self.class_name is None
-                                    or label.lower() == self.class_name.lower()
-                                ):
-                                    self.detections.append((bbox, label))
-                                    if (
-                                        self.class_name
-                                        and label.lower() == self.class_name.lower()
-                                    ):
-                                        self.target_detected = True
-                            if self.headless_mode:
-                                print(f"Object Detection results: {self.detections}")
-                            self.inference_count += 1
-                            self.update_inference_rate()
+                        self.detections = self.run_object_detection(image_pil)
+                        if self.headless_mode:
+                            print(f"Object Detection results from webcam {index}: {self.detections}")
+                        self.inference_count += 1
+                        self.update_inference_rate()
                     if self.visual_grounding_active and self.visual_grounding_phrase:
                         if self.debug:
                             print(
@@ -679,7 +668,7 @@ class YO_FLO:
                                     frame, bbox, self.visual_grounding_phrase
                                 )
                             else:
-                                print(f"Visual Grounding result: {bbox}")
+                                print(f"Visual Grounding result from webcam {index}: {bbox}")
                             self.inference_count += 1
                             self.update_inference_rate()
                     if (
@@ -695,13 +684,13 @@ class YO_FLO:
                         )
                         if self.headless_mode:
                             print(
-                                f"Inference Tree result: {inference_result}, Details: {phrase_results}"
+                                f"Inference Tree result from webcam {index}: {inference_result}, Details: {phrase_results}"
                             )
                         self.inference_count += 1
                         self.update_inference_rate()
                     if not self.headless_mode:
                         bbox_image = self.plot_bbox(frame.copy())
-                        cv2.imshow("Object Detection", bbox_image)
+                        cv2.imshow(f"Object Detection Webcam {index}", bbox_image)
 
                         current_time = time.time()
                         if (
@@ -712,7 +701,7 @@ class YO_FLO:
                             threading.Thread(target=self.beep_sound).start()
                             if self.debug:
                                 print(
-                                    f"{Fore.GREEN}{Style.BRIGHT}Target detected: {self.class_name}{Style.RESET_ALL}"
+                                    f"{Fore.GREEN}{Style.BRIGHT}Target detected: {', '.join(self.class_names)}{Style.RESET_ALL}"
                                 )
                             self.last_beep_time = current_time
                         if self.screenshot_active and self.target_detected:
@@ -724,45 +713,32 @@ class YO_FLO:
                             break
                 except Exception as e:
                     print(
-                        f"{Fore.RED}{Style.BRIGHT}Error during frame processing: {e}{Style.RESET_ALL}"
+                        f"{Fore.RED}{Style.BRIGHT}Error during frame processing in webcam {index}: {e}{Style.RESET_ALL}"
                     )
             cap.release()
-            cv2.destroyAllWindows()
+            if not self.headless_mode:
+                cv2.destroyWindow(f"Object Detection Webcam {index}")
         except cv2.error as e:
-            print(f"{Fore.RED}{Style.BRIGHT}OpenCV error: {e}{Style.RESET_ALL}")
+            print(f"{Fore.RED}{Style.BRIGHT}OpenCV error in webcam detection thread {index}: {e}{Style.RESET_ALL}")
         except Exception as e:
             print(
-                f"{Fore.RED}{Style.BRIGHT}Error during webcam detection: {e}{Style.RESET_ALL}"
+                f"{Fore.RED}{Style.BRIGHT}Error in webcam detection thread {index}: {e}{Style.RESET_ALL}"
             )
-        finally:
-            cap.release()
-            cv2.destroyAllWindows()
-            self.stop_webcam_flag.clear()
 
     def stop_webcam_detection(self):
-        if not self.webcam_thread or not self.webcam_thread.is_alive():
-            print(
-                f"{Fore.RED}{Style.BRIGHT}Webcam detection is not running.{Style.RESET_ALL}"
-            )
+        if not self.webcam_threads:
+            print(f"{Fore.RED}{Style.BRIGHT}Webcam detection is not running.{Style.RESET_ALL}")
             return
         self.object_detection_active = False
         self.expression_comprehension_active = False
         self.visual_grounding_active = False
         self.inference_tree_active = False
-
         self.update_display()
-
         self.stop_webcam_flag.set()
-
-        self.root.after(100, self._wait_for_thread_to_stop)
-
-    def _wait_for_thread_to_stop(self):
-        if self.webcam_thread.is_alive():
-            self.root.after(100, self._wait_for_thread_to_stop)
-        else:
-            print(
-                f"{Fore.GREEN}{Style.BRIGHT}Webcam detection stopped successfully.{Style.RESET_ALL}"
-            )
+        for thread in self.webcam_threads:
+            thread.join()
+        self.webcam_threads = []
+        print(f"{Fore.GREEN}{Style.BRIGHT}Webcam detection stopped successfully.{Style.RESET_ALL}")
 
     def update_display(self):
         if not self.object_detection_active:
@@ -897,7 +873,7 @@ class YO_FLO:
         tk.Button(
             detection_frame,
             text="Set Classes for Object Detection",
-            command=self.set_class_name,
+            command=self.set_class_names,
         ).pack(fill="x")
         tk.Button(
             detection_frame,
