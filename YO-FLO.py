@@ -25,7 +25,7 @@ class YO_FLO:
         self.inference_start_time = None
         self.inference_count = 0
         self.inference_rate_label = None
-        self.class_names = []  # Allow multiple class names
+        self.class_names = []
         self.detections = []
         self.beep_active = False
         self.screenshot_active = False
